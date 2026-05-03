@@ -65,11 +65,12 @@ tr:hover td{background:var(--surface2)}
 .log-err{color:var(--red)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-weight:700;padding:9px 20px;border-radius:20px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:999}
 .toast.show{opacity:1}
+#yoy-wrapper{position:relative;height:280px}
 @media(max-width:800px){
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .charts-grid{grid-column:1/-1;grid-template-columns:1fr}
   .compact-table .hide-sp{display:none}
-  #yoyChart{max-height:400px !important;min-height:400px}
+  #yoy-wrapper{height:420px}
 }
 </style>
 </head>
@@ -124,7 +125,7 @@ tr:hover td{background:var(--surface2)}
     <div class="chart-header">
       <span class="chart-title">昨年同試合数比　ホーム平均入場者数（2026 vs 2025）</span>
     </div>
-    <canvas id="yoyChart"></canvas>
+    <div id="yoy-wrapper"><canvas id="yoyChart"></canvas></div>
   </div>
 </div>
 
@@ -320,6 +321,7 @@ function renderYoYChart() {
     },
     options:{
       responsive:true,
+      maintainAspectRatio:false,
       plugins:{
         legend:{display:true, labels:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}}},
         datalabels:{},
