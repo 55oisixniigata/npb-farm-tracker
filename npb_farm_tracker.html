@@ -65,13 +65,13 @@ tr:hover td{background:var(--surface2)}
 .log-err{color:var(--red)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-weight:700;padding:9px 20px;border-radius:20px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:999}
 .toast.show{opacity:1}
-#yoy-wrapper{position:relative;flex:1;min-height:260px}
-.chart-panel.full{grid-column:1/-1;display:flex;flex-direction:column}
+#yoy-wrapper{position:relative;height:300px}
+.chart-panel.full{grid-column:1/-1}
 @media(max-width:800px){
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .charts-grid{grid-column:1/-1;grid-template-columns:1fr}
   .compact-table .hide-sp{display:none}
-  #yoy-wrapper{min-height:380px}
+  #yoy-wrapper{height:420px}
 }
 </style>
 </head>
