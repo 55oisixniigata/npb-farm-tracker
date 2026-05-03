@@ -2,6 +2,7 @@
 """
 NPBファーム集客トラッカー 自動更新スクレイパー
 NPB公式サイト(npb.jp)からファーム試合の観客数を取得する
+ページ番号は月と一致しないため、全ページを走査して日付で絞り込む
 """
 
 import json
@@ -35,7 +36,7 @@ TEAM_MAP = {
 }
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'Accept': 'text/html,application/xhtml+xml',
     'Accept-Language': 'ja,en-US;q=0.7',
     'Referer': 'https://npb.jp/',
@@ -70,24 +71,43 @@ def get_target_dates(games):
         cur += timedelta(days=1)
     return dates
 
-def get_game_urls_for_month(year, month):
-    url = f'https://npb.jp/farm/{year}/schedule_{month:02d}_detail.html'
-    try:
-        res = requests.get(url, headers=HEADERS, timeout=15)
-        if res.status_code != 200:
-            print(f"  日程ページ取得失敗: {url} ({res.status_code})")
-            return []
-        soup = BeautifulSoup(res.text, 'html.parser')
-        links = soup.find_all('a', href=re.compile(r'/scores/\d{4}/\d{4}/'))
-        urls = list(dict.fromkeys(
-            'https://npb.jp' + a['href'].rstrip('/')
-            for a in links
-        ))
-        print(f"  {year}/{month:02d} 日程ページ: {len(urls)}試合のURLを取得")
-        return urls
-    except Exception as e:
-        print(f"  日程ページエラー: {e}")
-        return []
+def get_all_farm_game_urls(year, target_dates):
+    """全ページを走査して対象日の試合URLを収集する"""
+    target_set = set(target_dates)
+    result = []  # (date, url) のリスト
+    
+    for page in range(1, 20):  # ページ1〜19を試す
+        url = f'https://npb.jp/farm/{year}/schedule_{page:02d}_detail.html'
+        try:
+            res = requests.get(url, headers=HEADERS, timeout=15)
+            if res.status_code == 404:
+                print(f"  ページ{page:02d}: 存在しない、終了")
+                break
+            if res.status_code != 200:
+                continue
+
+            soup = BeautifulSoup(res.text, 'html.parser')
+            links = soup.find_all('a', href=re.compile(r'/scores/\d{4}/\d{4}/'))
+            
+            found_in_page = 0
+            for a in links:
+                href = a['href']
+                dm = re.search(r'/scores/(\d{4})/(\d{2})(\d{2})/', href)
+                if dm:
+                    d = f'{dm.group(1)}-{dm.group(2)}-{dm.group(3)}'
+                    full_url = 'https://npb.jp' + href.rstrip('/')
+                    if d in target_set and (d, full_url) not in result:
+                        result.append((d, full_url))
+                        found_in_page += 1
+
+            print(f"  ページ{page:02d}: {found_in_page}件の対象試合URL取得")
+            time.sleep(0.5)
+
+        except Exception as e:
+            print(f"  ページ{page:02d} エラー: {e}")
+            continue
+
+    return result
 
 def scrape_game(url, game_date):
     try:
@@ -103,24 +123,25 @@ def scrape_game(url, game_date):
             return None
         audience = int(aud_match.group(1).replace(',', ''))
 
-        # ファーム試合かチェック（ファームは観客数が少ない＋タイトルで判断）
-        # スコアボードのチーム名
-        score_table = soup.find('table')
+        # チーム名をスコアボードから取得
         teams = []
+        score_table = soup.find('table')
         if score_table:
-            rows = score_table.find_all('tr')
-            for row in rows[1:3]:  # ヘッダー除く最初の2行
+            for row in score_table.find_all('tr')[1:3]:
                 cells = row.find_all('td')
                 if cells:
-                    t = cells[0].get_text(strip=True)
-                    # チーム名の長い部分を除去（略称部分を取得）
+                    cell_text = cells[0].get_text(strip=True)
                     for full, short in TEAM_MAP.items():
-                        if full in t or short in t:
+                        if full in cell_text or short == cell_text:
                             teams.append(short)
                             break
+                    else:
+                        # チーム名が見つからない場合は略称をそのまま使用
+                        if cell_text:
+                            teams.append(cell_text[:4])
 
         if len(teams) < 2:
-            # h2タグから取得
+            # h2/h3から取得
             for h in soup.find_all(['h2', 'h3']):
                 t = h.get_text()
                 if 'VS' in t or 'vs' in t:
@@ -132,7 +153,6 @@ def scrape_game(url, game_date):
         if len(teams) < 2:
             return None
 
-        # URLからID生成
         gid_match = re.search(r'/scores/\d{4}/\d{4}/([\w-]+)$', url)
         gid = game_date.replace('-', '') + '_' + (gid_match.group(1) if gid_match else url.split('/')[-1])
 
@@ -166,25 +186,13 @@ def main():
 
     print(f"取得対象: {target_dates[0]} 〜 {target_dates[-1]} ({len(target_dates)}日分)")
 
-    months = sorted(set((int(d[:4]), int(d[5:7])) for d in target_dates))
-
-    all_url_map = []
-    for year, month in months:
-        urls = get_game_urls_for_month(year, month)
-        for url in urls:
-            dm = re.search(r'/scores/(\d{4})/(\d{2})(\d{2})/', url)
-            if dm:
-                d = f'{dm.group(1)}-{dm.group(2)}-{dm.group(3)}'
-                all_url_map.append((d, url))
-        time.sleep(1)
-
-    target_set = set(target_dates)
-    filtered = [(d, url) for d, url in all_url_map if d in target_set]
-    print(f"対象日の試合URL: {len(filtered)}件")
+    year = int(target_dates[0][:4])
+    url_map = get_all_farm_game_urls(year, target_dates)
+    print(f"対象日の試合URL合計: {len(url_map)}件")
 
     new_games = []
     seen_urls = set()
-    for game_date, url in filtered:
+    for game_date, url in url_map:
         if url in seen_urls:
             continue
         seen_urls.add(url)
