@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 NPBファーム集客トラッカー 自動更新スクレイパー
-npb.jp/bis/2026/games/fgmYYYYMMDD.html から試合IDを取得し
-npb.jp/bis/2026/games/fsXXXX.html から観客数を取得する
+Cloudflare Worker経由でNPB公式から観客数を取得する
 """
 
 import json
@@ -17,6 +16,9 @@ import requests
 REPO_ROOT = Path(__file__).parent.parent
 DATA_FILE = REPO_ROOT / "data.json"
 
+# Cloudflare WorkerのURL
+WORKER_URL = "https://npb-farm-scraper.wsss716.workers.dev"
+
 TEAM_MAP = {
     '千葉ロッテマリーンズ': 'ロッテ', '北海道日本ハムファイターズ': '日本ハム',
     '東北楽天ゴールデンイーグルス': '楽天', '福岡ソフトバンクホークス': 'ソフトバンク',
@@ -27,16 +29,9 @@ TEAM_MAP = {
     'オイシックス新潟アルビレックスBC': 'オイシックス', 'ハヤテベンチャーズ静岡': 'ハヤテ',
     '東北楽天': '楽天', '埼玉西武': '西武', '千葉ロッテ': 'ロッテ',
     '北海道日本ハム': '日本ハム', '福岡ソフトバンク': 'ソフトバンク',
-    'ハヤテ静岡': 'ハヤテ', 'ハヤテ': 'ハヤテ',
-}
-
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Referer': 'https://npb.jp/',
+    '横浜DeNA': 'DeNA', '読売': '巨人', '東京ヤクルト': 'ヤクルト',
+    'オイシックス新潟': 'オイシックス', 'ハヤテ静岡': 'ハヤテ',
+    '広島東洋': '広島', 'オリックス': 'オリックス', '中日': '中日',
 }
 
 def norm(name):
@@ -69,61 +64,20 @@ def get_target_dates(games):
         cur += timedelta(days=1)
     return dates
 
-def get_game_ids_for_date(date_str):
-    """日付ごとのページからファーム試合IDを取得"""
-    ymd = date_str.replace('-', '')
-    url = f'https://npb.jp/bis/2026/games/fgm{ymd}.html'
+def fetch_games_for_date(date_str):
+    """Cloudflare Worker経由でNPBから試合データを取得"""
     try:
-        res = requests.get(url, headers=HEADERS, timeout=15)
-        print(f"  日程ページ {date_str}: status={res.status_code} len={len(res.text)}")
+        res = requests.get(f"{WORKER_URL}/?date={date_str}", timeout=30)
         if res.status_code != 200:
+            print(f"  {date_str}: Worker エラー {res.status_code}")
             return []
-        ids = list(dict.fromkeys(re.findall(r'fs\d+', res.text)))
-        print(f"  {date_str}: {len(ids)}件のゲームID: {ids}")
-        return ids
+        data = res.json()
+        games = data.get('games', [])
+        print(f"  {date_str}: {len(games)}試合取得")
+        return games
     except Exception as e:
-        print(f"  {date_str} エラー: {e}")
+        print(f"  {date_str}: エラー {e}")
         return []
-
-def scrape_game(game_id, game_date):
-    """個別試合ページから観客数・チームを取得"""
-    url = f'https://npb.jp/bis/2026/games/{game_id}.html'
-    try:
-        res = requests.get(url, headers=HEADERS, timeout=15)
-        html = res.text
-        print(f"    {game_id}: status={res.status_code} len={len(html)}")
-
-        if res.status_code != 200:
-            return None
-
-        # 観客数（複数パターン）
-        aud_match = re.search(r'入場者[\s\u3000]*[-－\-][\s\u3000]*([\d,]+)', html)
-        if not aud_match:
-            idx = html.find('入場者')
-            if idx >= 0:
-                print(f"    入場者周辺: {repr(html[idx:idx+30])}")
-            else:
-                print(f"    入場者: 見つからず（中止の可能性）")
-            return None
-        audience = int(aud_match.group(1).replace(',', ''))
-
-        # チーム名
-        title_match = re.search(r'[（(](.+?)vs(.+?)[）)]', html)
-        if not title_match:
-            return None
-        home = norm(title_match.group(1))
-        away = norm(title_match.group(2))
-
-        return {
-            'id': game_id,
-            'date': game_date,
-            'home': home,
-            'away': away,
-            'audience': audience,
-        }
-    except Exception as e:
-        print(f"    エラー {game_id}: {e}")
-        return None
 
 def next_version(current):
     m = re.search(r'v(\d+)$', current)
@@ -146,20 +100,20 @@ def main():
 
     new_games = []
     for d in target_dates:
-        ids = get_game_ids_for_date(d)
-        for game_id in ids:
-            if game_id in existing_ids:
+        fetched = fetch_games_for_date(d)
+        for g in fetched:
+            if g['id'] in existing_ids:
                 continue
-            result = scrape_game(game_id, d)
-            if result:
-                new_games.append(result)
-                existing_ids.add(game_id)
-                print(f"  ✅ {result['date']} {result['home']} vs {result['away']} {result['audience']:,}人")
-            time.sleep(0.3)
+            # チーム名を正規化
+            g['home'] = norm(g['home'])
+            g['away'] = norm(g['away'])
+            new_games.append(g)
+            existing_ids.add(g['id'])
+            print(f"  ✅ {g['date']} {g['home']} vs {g['away']} {g['audience']:,}人")
         time.sleep(0.5)
 
     if not new_games:
-        print("⚠️  新規データなし（試合なし、または取得失敗）")
+        print("⚠️  新規データなし（試合なし、または雨天中止）")
         sys.exit(0)
 
     all_games = games + new_games
