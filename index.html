@@ -151,7 +151,8 @@ let barChart, lineChart, yoyChart;
 // ── data.json を fetch して初期化 ──
 async function init() {
   try {
-    const res = await fetch('/npb-farm-tracker/data.json');
+    const base = location.pathname.replace(/\/[^/]*$/, '');
+    const res = await fetch(base + '/data.json');
     const sidecar = await res.json();
     entries = sidecar.games || [];
     const latestDate = entries.reduce((m,e) => e.date > m ? e.date : m, '');
