@@ -156,45 +156,7 @@ async function init() {
     entries = sidecar.games || [];
     const latestDate = entries.reduce((m,e) => e.date > m ? e.date : m, '');
     document.getElementById('last-updated').textContent =
-      latestDate ? '最終更新: ' + latestDate : 'データなし';
-  } catch(e) {
-    document.getElementById('last-updated').textContent = 'データ読込エラー';
-    console.error(e);
-  }
-  render();
-}
-
-function render() {
-  renderStats();
-  renderBarChart();
-  renderTeamTabs();
-  renderLineChart();
-  renderYoYChart();
-  renderTable();
-}
-
-function teamStats() {
-  const stats = {};
-  entries.forEach(e => {
-    if (!stats[e.home]) stats[e.home]={total:0,count:0,max:0,min:Infinity};
-    stats[e.home].total += e.audience;
-    stats[e.home].count++;
-    stats[e.home].max = Math.max(stats[e.home].max, e.audience);
-    stats[e.home].min = Math.min(stats[e.home].min, e.audience);
-  });
-  return stats;
-}
-
-function renderStats() {
-  const stats = teamStats();
-  const total = entries.reduce((s,e)=>s+e.audience,0);
-  const cnt = entries.length;
-  const avg = cnt>0 ? Math.round(total/cnt) : 0;
-  const top = Object.entries(stats).sort((a,b)=>b[1].total-a[1].total)[0];
-  const dates = [...new Set(entries.map(e=>e.date))];
-  const lastDate = entries.length ? entries.reduce((m,e)=>e.date>m?e.date:m,'').slice(5).replace('-','/') : '—';
-  document.getElementById('stats-row').innerHTML = `
-    <div class="stat-card"><div class="stat-label">総入場者数</div>
+      latestDate ? '最終更新: 2026-04-30<div class="stat-card"><div class="stat-label">総入場者数</div>
       <div class="stat-value">${total>=10000?(total/10000).toFixed(1)+'<span>万</span>':total.toLocaleString()}<span>人</span></div>
       <div class="stat-sub">${cnt}試合・${dates.length}日間</div></div>
     <div class="stat-card"><div class="stat-label">平均入場者数</div>
