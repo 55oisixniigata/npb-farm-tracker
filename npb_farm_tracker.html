@@ -71,6 +71,7 @@ tr:hover td{background:var(--surface2)}
   .compact-table .hide-sp{display:none}
   .compact-table{font-size:.82rem}
   .compact-table td,.compact-table th{padding:6px 7px}
+  #yoyChart{max-height:420px !important;min-height:360px}
 }
 </style>
 </head>
@@ -295,7 +296,14 @@ function renderYoYChart() {
           borderColor: teamColors,
           borderWidth:1.5, borderRadius:4,
           yAxisID:'y',
-          datalabels:{ display:false }
+          datalabels:{
+            display:true,
+            align:'top',
+            anchor:'end',
+            color:'#ffffff99',
+            font:{size:9, family:'Noto Sans JP'},
+            formatter: v => v.toLocaleString()
+          }
         },
         {
           label:'2025年 同試合数時点平均',
@@ -308,14 +316,7 @@ function renderYoYChart() {
           pointBackgroundColor:'#ffffffaa',
           fill:false,
           yAxisID:'y',
-          datalabels:{
-            display:true,
-            align:'top',
-            anchor:'end',
-            color:'#9aa0b8',
-            font:{size:9, family:'Noto Sans JP'},
-            formatter: v => v.toLocaleString()
-          }
+          datalabels:{ display:false }
         }
       ]
     },
@@ -324,16 +325,22 @@ function renderYoYChart() {
       plugins:{
         legend:{display:true, labels:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}}},
         datalabels:{},
-        tooltip:{callbacks:{
-          label: ctx => {
-            const r = result[ctx.dataIndex];
-            if (ctx.datasetIndex === 0) {
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          callbacks:{
+            title: ctx => {
+              const r = result[ctx[0].dataIndex];
               const sign = r.ratio >= 100 ? '+' : '';
-              return `2026: ${r.avg2026.toLocaleString()}人  昨年同${r.n}試合比 ${sign}${r.ratio-100}%`;
+              return `${r.team}（昨年同${r.n}試合比 ${sign}${r.ratio-100}%）`;
+            },
+            label: ctx => {
+              const r = result[ctx.dataIndex];
+              if (ctx.datasetIndex === 0) return `  2026年: ${r.avg2026.toLocaleString()} 人`;
+              return `  2025年: ${r.avg2025atN.toLocaleString()} 人`;
             }
-            return `2025同時点: ${r.avg2025atN.toLocaleString()}人（${r.n}試合平均）`;
           }
-        }}
+        }
       },
       scales:{
         x:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#1a1e2e'}},
