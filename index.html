@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NPBファーム 集客トラッカー 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&family=Bebas+Neue&display=swap');
+:root{--bg:#0a0c12;--surface:#12151f;--surface2:#1a1e2e;--border:#252a3d;--accent:#e8c84a;--accent2:#4a8fe8;--text:#f0f2ff;--muted:#6b728f;--green:#4ae8a0;--red:#e84a6b}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap;gap:10px}
+header h1{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;letter-spacing:.04em;color:var(--accent)}
+.header-right{display:flex;align-items:center;gap:12px}
+.last-updated{font-size:.75rem;color:var(--muted)}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.stat-label{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:5px}
+.stat-value{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;color:var(--accent);line-height:1}
+.stat-value span{font-family:'Noto Sans JP';font-size:.9rem}
+.stat-sub{font-size:.72rem;color:var(--muted);margin-top:3px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.chart-panel.full{grid-column:1/-1}
+.chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px}
+.chart-title{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.tab-group{display:flex;flex-wrap:wrap;gap:3px}
+.tab{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:3px 9px;font-size:.7rem;border-radius:4px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
+canvas{max-height:240px}
+.chart-panel:not(.full){display:flex;flex-direction:column}
+.chart-panel:not(.full) canvas{flex:1;max-height:none;min-height:0}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--muted)}
+.legend-dot{width:8px;height:8px;border-radius:50%}
+.table-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{text-align:left;padding:6px 10px;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)}
+td{padding:7px 10px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.compact-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.compact-table th{padding:5px 5px;font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.compact-table th:first-child,.compact-table th:nth-child(2){text-align:left}
+.compact-table td{padding:4px 5px;border-bottom:1px solid var(--border);text-align:right;color:var(--muted);white-space:nowrap}
+.compact-table td:first-child{text-align:center;font-size:.72rem;width:20px}
+.compact-table td:nth-child(2){text-align:left;color:var(--text)}
+.compact-table tr:last-child td{border-bottom:none}
+.compact-table tr:hover td{background:var(--surface2)}
+.compact-table .avg-val{color:var(--text);font-weight:700}
+.compact-table .max-val{color:var(--green)}
+.compact-table .min-val{color:var(--muted)}
+.rank-panel-scroll{overflow-x:auto}
+.team-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.log-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.log-title{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:10px}
+.log-item{font-size:.75rem;padding:4px 0;border-bottom:1px solid var(--border);color:var(--muted);display:flex;gap:8px}
+.log-item:last-child{border-bottom:none}
+.log-time{color:var(--muted);flex-shrink:0;min-width:80px}
+.log-ok{color:var(--green)}
+.log-err{color:var(--red)}
+.loading{display:flex;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:.9rem}
+#yoy-wrapper{position:relative;height:300px}
+#yoyChart{max-height:none}
+@media(max-width:800px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .charts-grid{grid-column:1/-1;grid-template-columns:1fr}
+  .compact-table .hide-sp{display:none}
+  #yoy-wrapper{height:420px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>NPB FARM ATTENDANCE 2026</h1>
+    <div style="font-size:.8rem;color:var(--muted);margin-top:2px">ファーム公式戦 集客トラッカー｜毎日自動更新</div>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="last-updated">読込中...</span>
+  </div>
+</header>
+
+<div class="stats-row" id="stats-row"><div class="loading" style="grid-column:1/-1">データ読込中...</div></div>
+
+<div class="charts-grid">
+  <div class="chart-panel">
+    <div class="chart-header">
+      <span class="chart-title">観客動員数ランキング</span>
+      <div class="tab-group" id="bar-tabs">
+        <button class="tab active" onclick="switchBar('total',this)">累計</button>
+        <button class="tab" onclick="switchBar('avg',this)">平均</button>
+      </div>
+    </div>
+    <canvas id="barChart"></canvas>
+    <div class="legend" id="bar-legend"></div>
+  </div>
+  <div class="chart-panel">
+    <div class="chart-header">
+      <span class="chart-title">観客動員実績（詳細）</span>
+      <div class="tab-group" id="rank-tabs">
+        <button class="tab active" onclick="switchRank('total',this)">累計順</button>
+        <button class="tab" onclick="switchRank('avg',this)">平均順</button>
+      </div>
+    </div>
+    <div class="rank-panel-scroll">
+      <table class="compact-table" id="summary-table">
+        <thead><tr><th>#</th><th>チーム</th><th>試合</th><th id="th-total">累計</th><th id="th-avg">平均</th><th class="hide-sp">最多</th><th class="hide-sp">最少</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="chart-panel full">
+    <div class="chart-header">
+      <span class="chart-title">チーム別 推移（ホーム試合）</span>
+      <div class="tab-group" id="team-tabs"></div>
+    </div>
+    <canvas id="lineChart"></canvas>
+  </div>
+  <div class="chart-panel full">
+    <div class="chart-header">
+      <span class="chart-title">昨年同試合数比　ホーム平均入場者数（2026 vs 2025）</span>
+    </div>
+    <div id="yoy-wrapper"><canvas id="yoyChart"></canvas></div>
+  </div>
+</div>
+
+<div class="log-panel" style="display:none">
+  <div class="log-title">更新ログ</div>
+  <div id="log-list"></div>
+</div>
+
+<script>
+const TEAMS_COLOR = {
+  '巨人':'#FF8C00','阪神':'#FFD700','中日':'#4a8fe8','広島':'#E60012',
+  'ヤクルト':'#00A650','DeNA':'#00b4d8','ソフトバンク':'#F6C90E',
+  '日本ハム':'#7b9fd4','オリックス':'#5b9bd5','ロッテ':'#adb5bd',
+  '楽天':'#AC0013','西武':'#6ea8d8','オイシックス':'#FF6B35','ハヤテ':'#9b59b6',
+};
+
+const GAMES_2025 = {"DeNA":[705,365,1439,774,1084,1006,351,506,628,640,1599,1409,581,1497,2028,2657,3177,581,803,672,453,545,377,928,2047,1983,452,3099,655,402,705,657,1302,859,931,303,310,498,1188,962,3499,1380,947,1658,1438,1180,1297,1303,1817,1821,1833,759,827,707,1587,1321,1065,1038,1617,794,421,972,986,2011,2071,1632],"巨人":[2503,1142,1473,1386,1024,972,954,477,2533,1055,2536,2503,1606,2633,2757,2591,2624,2628,1732,1149,2550,2711,1533,807,1233,1124,1214,1295,1271,1044,1078,1163,841,1867,1808,2734,2808,2724,2273,2680,1825,2673,2023,26313,1304,1140,1275,1339,730,850,603,2690,2870,1148,2443,2505,1129,2365,2691],"ヤクルト":[515,479,601,583,481,420,481,305,367,249,244,116,196,168,354,412,616,611,357,372,239,289,276,438,280,433,448,384,425,532,201,205,202,362,352,306,310,381,570,598,331,349,317,263,321,403,472,466,439,384,366,405,206,309,319,492,672,492,688,420,522],"楽天":[168,164,144,158,143,120,174,1513,60,54,59,104,151,150,2064,177,94,674,908,2741,88,121,172,164,156,143,159,156,196,181,123,165,160,117,135,112,159,1277,1221,134,168,141,6820,185,141,161,167,2077,2067,908,149,156,168,164,162,165,2683,174,165,170,679,2563,747],"ロッテ":[105,105,249,243,265,257,241,240,98,48,131,108,118,292,352,133,164,175,174,117,95,1143,1062,688,507,412,354,507,414,376,441,1092,1040,928,765,635,481,397,327,340,440,471,396,313,279,1058,810,613,542,548,524,438,335,308,417,455,411],"日本ハム":[2513,1672,2606,3155,1849,1743,2142,1707,1540,888,1228,1099,1025,1057,1159,1250,1303,857,753,668,511,700,593,472,483,636,614,518,582,600,557,487,568,659,711,685,661,630,528,531,534,527,509,485,513,551,537,552,515,547,572,591,605,619,623,632,645,657,671,685,699],"西武":[1672,1567,2606,195,183,128,197,853,1068,196,186,2094,2449,172,4493,184,196,159,182,2400,182,194,135,178,174,1659,1732,104,177,176,173,180,1643,1441,1872,188,167,176,194,144,2543,1646,803,187,138,162,149,110,193,169,4697,97,164,191,185,202,210],"オイシックス":[3034,3155,1547,1192,605,2558,906,1304,2372,733,506,1809,974,603,826,600,863,1823,1867,567,605,582,2076,5077,4796,769,852,669,680,584,1349,6157,2621,447,1709,896,620,1405,849,874,997,1525,1794,975,977,1653,1923,4508,2647,2009,717,518,2209,2979,2421,2617,727,2532,892,1530,2819,3271],"阪神":[3741,4079,2266,4169,2750,4016,3970,2307,3058,2814,2477,4052,4204,859,974,4283,1344,3472,3209,2388,2325,2228,3073,3355,2202,4010,4212,1068,1087,3115,4233,5856,2047,2070,2820,4114,4100,4006,4133,3274,1692,1819,1712,4347,4351,4357,4202,4294,3575,4331,4350,3524,3150,1409,2317,2208,1739,1827,1673,4337,2273,2303,3297,4352,4355],"広島":[151,486,503,550,108,318,382,453,301,420,512,252,475,211,176,319,2959,4626,3519,649,1150,1462,4431,2170,462,707,360,252,90,442,118,275,152,360,1552,222,407,429,202,223,113,306,450,587,298,414,548,237,820,672,653,214,243,282,2548,1438,455,1268],"中日":[1249,2508,1176,1360,1366,2276,2084,838,1580,1401,1306,1109,1526,3241,2758,2153,3668,1402,1588,3212,1308,1698,1515,1702,1161,1335,1478,514,678,605,631,842,1375,1302,786,3413,3403,746,2923,2910,1343,1127,3223,3353,922,3504,3402,604,704,412,878,1012,642,3136,3069,2805,864,820,1141,3641,3758],"オリックス":[421,383,394,1354,1350,409,224,241,276,657,1338,1564,294,310,286,354,377,1467,327,355,2105,1803,264,267,218,218,1882,945,1675,199,1087,466,302,188,1721,1544,201,323,266,215,234,221,210,1575,1565,132,202,285,1588,151,171,2473,788,1267,443,907,1815,1144,143,162,111,1016,1102,684,2145,348,392],"ソフトバンク":[1806,1461,1016,1300,1269,1345,1605,1575,1407,1562,1203,1181,1475,2402,2134,2587,1581,1405,3113,2551,1194,2203,2751,1351,1300,1222,1133,1303,1437,3113,2682,1232,1225,1201,1054,2254,2012,1151,1805,1027,1009,1802,1522,1522,2303,1932,1076,1011,1262,2477,3045,2527,1561,2351,2741,2803,1451,1406,1567,2509,3079,2502,1517,2027,1603,2007,2178,1901,2555,2211,3113],"ハヤテ":[846,887,521,542,485,1315,834,915,1334,741,1046,1248,1268,225,820,449,451,434,446,323,805,1621,369,414,454,639,548,248,277,1410,1127,758,359,1306,1708,1012,603,509,501,1238,423,468,372,519,536,1273,1191,409,331,403,635,921,1179,607,2121,1803]};
+
+let entries = [];
+let barMode = 'total';
+let rankMode = 'total';
+let lineTeam = null;
+let barChart, lineChart, yoyChart;
+
+// ── data.json を fetch して初期化 ──
+async function init() {
+  try {
+    const res = await fetch('data.json');
+    const sidecar = await res.json();
+    entries = sidecar.games || [];
+    const latestDate = entries.reduce((m,e) => e.date > m ? e.date : m, '');
+    document.getElementById('last-updated').textContent =
+      latestDate ? '最終更新: ' + latestDate : 'データなし';
+  } catch(e) {
+    document.getElementById('last-updated').textContent = 'データ読込エラー';
+    console.error(e);
+  }
+  render();
+}
+
+function render() {
+  renderStats();
+  renderBarChart();
+  renderTeamTabs();
+  renderLineChart();
+  renderYoYChart();
+  renderTable();
+}
+
+function teamStats() {
+  const stats = {};
+  entries.forEach(e => {
+    if (!stats[e.home]) stats[e.home]={total:0,count:0,max:0,min:Infinity};
+    stats[e.home].total += e.audience;
+    stats[e.home].count++;
+    stats[e.home].max = Math.max(stats[e.home].max, e.audience);
+    stats[e.home].min = Math.min(stats[e.home].min, e.audience);
+  });
+  return stats;
+}
+
+function renderStats() {
+  const stats = teamStats();
+  const total = entries.reduce((s,e)=>s+e.audience,0);
+  const cnt = entries.length;
+  const avg = cnt>0 ? Math.round(total/cnt) : 0;
+  const top = Object.entries(stats).sort((a,b)=>b[1].total-a[1].total)[0];
+  const dates = [...new Set(entries.map(e=>e.date))];
+  const lastDate = entries.length ? entries.reduce((m,e)=>e.date>m?e.date:m,'').slice(5).replace('-','/') : '—';
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="stat-label">総入場者数</div>
+      <div class="stat-value">${total>=10000?(total/10000).toFixed(1)+'<span>万</span>':total.toLocaleString()}<span>人</span></div>
+      <div class="stat-sub">${cnt}試合・${dates.length}日間</div></div>
+    <div class="stat-card"><div class="stat-label">平均入場者数</div>
+      <div class="stat-value">${avg.toLocaleString()}<span>人</span></div>
+      <div class="stat-sub">1試合あたり</div></div>
+    <div class="stat-card"><div class="stat-label">最多集客チーム</div>
+      <div class="stat-value" style="font-size:1.3rem;font-family:'Noto Sans JP';font-weight:900;color:${TEAMS_COLOR[top?.[0]]||'var(--accent)'}">${top?.[0]||'—'}</div>
+      <div class="stat-sub">${top?.[1].total.toLocaleString()||0}人累計</div></div>
+    <div class="stat-card"><div class="stat-label">最新データ</div>
+      <div class="stat-value" style="font-size:1.1rem;font-family:'Noto Sans JP';font-weight:700">〜${lastDate}</div>
+      <div class="stat-sub">開幕3/14〜</div></div>`;
+}
+
+function switchBar(mode,btn){barMode=mode;document.getElementById('bar-tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderBarChart();}
+function switchRank(mode,btn){rankMode=mode;document.getElementById('rank-tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderTable();}
+
+function renderBarChart(){
+  const stats=teamStats();const val=([,s])=>barMode==='total'?s.total:Math.round(s.total/s.count);
+  const sorted=Object.entries(stats).sort((a,b)=>val(b)-val(a));
+  const labels=sorted.map(([t])=>t);const data=sorted.map(s=>val(s));const colors=labels.map(t=>TEAMS_COLOR[t]||'#888');
+  if(barChart)barChart.destroy();
+  barChart=new Chart(document.getElementById('barChart'),{type:'bar',data:{labels,datasets:[{data,backgroundColor:colors.map(c=>c+'bb'),borderColor:colors,borderWidth:1.5,borderRadius:4}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#1a1e2e'}},y:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#252a3d'}}}}});
+  document.getElementById('bar-legend').innerHTML=sorted.map(([t])=>`<div class="legend-item"><div class="legend-dot" style="background:${TEAMS_COLOR[t]||'#888'}"></div>${t}</div>`).join('');
+}
+
+function renderYoYChart(){
+  const wrapper=document.getElementById('yoy-wrapper');
+  wrapper.style.height=(window.innerWidth<=800?'420':'300')+'px';
+  const stats2026=teamStats();
+  const teams=Object.keys(GAMES_2025).filter(t=>stats2026[t]&&stats2026[t].count>0);
+  const result=teams.map(t=>{
+    const n=stats2026[t].count;const games2025=GAMES_2025[t]||[];const sliced=games2025.slice(0,n);
+    const total2025atN=sliced.reduce((s,v)=>s+v,0);const avg2025atN=sliced.length>0?Math.round(total2025atN/sliced.length):0;
+    const total2026=stats2026[t].total;const avg2026=Math.round(total2026/n);
+    const ratio=avg2025atN>0?Math.round(avg2026/avg2025atN*100):100;
+    return{team:t,avg2026,avg2025atN,ratio,n};
+  });
+  result.sort((a,b)=>b.ratio-a.ratio);
+  const labels=result.map(r=>r.team);const avg2026vals=result.map(r=>r.avg2026);const avg2025vals=result.map(r=>r.avg2025atN);
+  const teamColors=labels.map(t=>TEAMS_COLOR[t]||'#888');
+  if(yoyChart)yoyChart.destroy();
+  yoyChart=new Chart(document.getElementById('yoyChart'),{
+    type:'bar',data:{labels,datasets:[
+      {label:'2026年 平均',data:avg2026vals,backgroundColor:teamColors.map(c=>c+'99'),borderColor:teamColors,borderWidth:1.5,borderRadius:4,yAxisID:'y',
+        datalabels:{display:true,align:'top',anchor:'end',color:'#ffffffcc',font:{size:9,family:'Noto Sans JP'},formatter:v=>v.toLocaleString(),backgroundColor:'rgba(18,22,38,0.85)',borderRadius:3,padding:{top:2,bottom:2,left:4,right:4}}},
+      {label:'2025年 同試合数時点平均',data:avg2025vals,type:'line',borderColor:'#ffffff66',borderWidth:2,borderDash:[5,4],pointRadius:4,pointBackgroundColor:'#ffffffaa',fill:false,yAxisID:'y',datalabels:{display:false}}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}}},datalabels:{},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          title:ctx=>{const r=result[ctx[0].dataIndex];const sign=r.ratio>=100?'+':'';return`${r.team}（昨年同${r.n}試合比 ${sign}${r.ratio-100}%）`;},
+          label:ctx=>{const r=result[ctx.dataIndex];return ctx.datasetIndex===0?`  2026年: ${r.avg2026.toLocaleString()} 人`:`  2025年: ${r.avg2025atN.toLocaleString()} 人`;}}}},
+      scales:{x:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#1a1e2e'}},y:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#252a3d'}}}},
+    plugins:[ChartDataLabels]});
+}
+
+function renderTeamTabs(){
+  const stats=teamStats();const teams=Object.keys(stats).sort((a,b)=>stats[b].total-stats[a].total);
+  if(!lineTeam||!stats[lineTeam])lineTeam=teams[0];
+  document.getElementById('team-tabs').innerHTML=teams.map(t=>{
+    const active=t===lineTeam;const c=TEAMS_COLOR[t]||'var(--accent)';
+    return`<button class="tab${active?' active':''}" onclick="selectTeam('${t}',this)" style="${active?`background:${c};border-color:${c};color:#000`:''}">${t}</button>`;
+  }).join('');
+}
+
+function selectTeam(team,btn){
+  lineTeam=team;
+  document.getElementById('team-tabs').querySelectorAll('.tab').forEach(t=>{t.classList.remove('active');t.style.background='';t.style.borderColor='';t.style.color='';});
+  btn.classList.add('active');const c=TEAMS_COLOR[team]||'var(--accent)';
+  btn.style.background=c;btn.style.borderColor=c;btn.style.color='#000';
+  renderLineChart();
+}
+
+function renderLineChart(){
+  if(!lineTeam)return;const c=TEAMS_COLOR[lineTeam]||'#e8c84a';
+  const games=entries.filter(e=>e.home===lineTeam).sort((a,b)=>a.date.localeCompare(b.date));
+  if(lineChart)lineChart.destroy();
+  lineChart=new Chart(document.getElementById('lineChart'),{type:'line',
+    data:{labels:games.map(g=>g.date.slice(5).replace('-','/')+' vs '+g.away),
+      datasets:[{label:lineTeam,data:games.map(g=>g.audience),borderColor:c,backgroundColor:c+'22',borderWidth:2.5,pointRadius:4,tension:0.3,fill:true}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString()}人`}}},
+      scales:{x:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10},maxRotation:40},grid:{color:'#1a1e2e'}},y:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#252a3d'}}}}});
+}
+
+function renderTable(){
+  const stats=teamStats();const isAvg=rankMode==='avg';
+  const sorted=Object.entries(stats).filter(([,s])=>s.count>0).sort((a,b)=>{
+    const va=isAvg?Math.round(a[1].total/a[1].count):a[1].total;
+    const vb=isAvg?Math.round(b[1].total/b[1].count):b[1].total;return vb-va;});
+  const medals=['🥇','🥈','🥉'];
+  document.querySelector('#summary-table tbody').innerHTML=sorted.map(([team,s],i)=>{
+    const rank=i<3?`<span>${medals[i]}</span>`:`${i+1}`;
+    const avg=Math.round(s.total/s.count);
+    return`<tr><td>${rank}</td><td><span class="team-dot" style="background:${TEAMS_COLOR[team]||'#888'}"></span>${team}</td><td>${s.count}</td><td class="avg-val">${s.total.toLocaleString()}</td><td class="avg-val">${avg.toLocaleString()}</td><td class="max-val hide-sp">${s.max.toLocaleString()}</td><td class="min-val hide-sp">${s.min.toLocaleString()}</td></tr>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>
