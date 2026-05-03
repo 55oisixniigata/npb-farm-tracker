@@ -61,7 +61,7 @@ def scrape_with_playwright(target_dates, existing_ids):
     results = []
 
     scrape_js = """
-async (targetDates, existingIds) => {
+async ([targetDates, existingIds]) => {
     const toHalf = s => s.replace(/[\\uFF01-\\uFF5E]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
     const norm = n => toHalf(n);
     const existingSet = new Set(existingIds);
