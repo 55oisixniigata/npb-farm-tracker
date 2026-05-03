@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 NPBファーム集客トラッカー 自動更新スクレイパー
-npb.jp/bis/2026/games/ から静的HTMLで観客数を取得する
+npb.jp/bis/2026/games/fgmYYYYMMDD.html から試合IDを取得し
+npb.jp/bis/2026/games/fsXXXXXXXXXXXXXXXX.html から観客数を取得する
 """
 
 import json
@@ -12,7 +13,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import requests
-from bs4 import BeautifulSoup
 
 REPO_ROOT = Path(__file__).parent.parent
 DATA_FILE = REPO_ROOT / "data.json"
@@ -66,25 +66,23 @@ def get_target_dates(games):
         cur += timedelta(days=1)
     return dates
 
-def get_farm_game_ids():
-    """日程一覧ページからファーム試合IDを全取得"""
-    url = 'https://npb.jp/bis/2026/games/index_farm.html'
+def get_game_ids_for_date(date_str):
+    """日付ごとのページからファーム試合IDを取得"""
+    ymd = date_str.replace('-', '')
+    url = f'https://npb.jp/bis/2026/games/fgm{ymd}.html'
     try:
         res = requests.get(url, headers=HEADERS, timeout=15)
         if res.status_code != 200:
-            print(f"  日程ページ取得失敗: {res.status_code}")
             return []
-        ids = list(dict.fromkeys(
-            re.findall(r'fs\d+', res.text)
-        ))
-        print(f"  ゲームID取得: {len(ids)}件")
+        ids = list(dict.fromkeys(re.findall(r'fs\d+', res.text)))
+        print(f"  {date_str}: {len(ids)}件のゲームID取得")
         return ids
     except Exception as e:
-        print(f"  日程ページエラー: {e}")
+        print(f"  {date_str} エラー: {e}")
         return []
 
-def scrape_game(game_id, target_dates):
-    """個別試合ページから観客数・チーム・日付を取得"""
+def scrape_game(game_id, game_date):
+    """個別試合ページから観客数・チームを取得"""
     url = f'https://npb.jp/bis/2026/games/{game_id}.html'
     try:
         res = requests.get(url, headers=HEADERS, timeout=15)
@@ -92,23 +90,13 @@ def scrape_game(game_id, target_dates):
             return None
         html = res.text
 
-        # 日付を取得（fs2026MMDD形式から）
-        date_match = re.search(r'fs(\d{4})(\d{2})(\d{2})', game_id)
-        if not date_match:
-            return None
-        game_date = f'{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}'
-
-        # 対象日でなければスキップ
-        if game_date not in target_dates:
-            return None
-
         # 観客数
         aud_match = re.search(r'入場者\s*[-－]\s*([\d,]+)', html)
         if not aud_match:
             return None
         audience = int(aud_match.group(1).replace(',', ''))
 
-        # チーム名（タイトルから）
+        # チーム名
         title_match = re.search(r'（(.+?)vs(.+?)）', html)
         if not title_match:
             return None
@@ -145,21 +133,19 @@ def main():
 
     print(f"取得対象: {target_dates[0]} 〜 {target_dates[-1]} ({len(target_dates)}日分)")
 
-    # 全ゲームIDを取得
-    all_ids = get_farm_game_ids()
-    target_set = set(target_dates)
-
     new_games = []
-    for game_id in all_ids:
-        if game_id in existing_ids:
-            continue
-
-        result = scrape_game(game_id, target_set)
-        if result:
-            new_games.append(result)
-            existing_ids.add(game_id)
-            print(f"  ✅ {result['date']} {result['home']} vs {result['away']} {result['audience']:,}人")
-        time.sleep(0.3)
+    for d in target_dates:
+        ids = get_game_ids_for_date(d)
+        for game_id in ids:
+            if game_id in existing_ids:
+                continue
+            result = scrape_game(game_id, d)
+            if result:
+                new_games.append(result)
+                existing_ids.add(game_id)
+                print(f"  ✅ {result['date']} {result['home']} vs {result['away']} {result['audience']:,}人")
+            time.sleep(0.3)
+        time.sleep(0.5)
 
     if not new_games:
         print("⚠️  新規データなし（試合なし、または取得失敗）")
