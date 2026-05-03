@@ -166,7 +166,7 @@ async (targetDates, existingIds) => {
         print(f"対象日: {target_dates}")
         print(f"既存ID数: {len(existing_ids)}件")
 
-        new_games = page.evaluate(scrape_js, target_dates, list(existing_ids))
+        new_games = page.evaluate(scrape_js, [target_dates, list(existing_ids)])
 
         browser.close()
 
