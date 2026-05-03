@@ -2,7 +2,7 @@
 """
 NPBファーム集客トラッカー 自動更新スクレイパー
 npb.jp/bis/2026/games/fgmYYYYMMDD.html から試合IDを取得し
-npb.jp/bis/2026/games/fsXXXXXXXXXXXXXXXX.html から観客数を取得する
+npb.jp/bis/2026/games/fsXXXX.html から観客数を取得する
 """
 
 import json
@@ -27,6 +27,7 @@ TEAM_MAP = {
     'オイシックス新潟アルビレックスBC': 'オイシックス', 'ハヤテベンチャーズ静岡': 'ハヤテ',
     '東北楽天': '楽天', '埼玉西武': '西武', '千葉ロッテ': 'ロッテ',
     '北海道日本ハム': '日本ハム', '福岡ソフトバンク': 'ソフトバンク',
+    'ハヤテ静岡': 'ハヤテ', 'ハヤテ': 'ハヤテ',
 }
 
 HEADERS = {
@@ -72,10 +73,11 @@ def get_game_ids_for_date(date_str):
     url = f'https://npb.jp/bis/2026/games/fgm{ymd}.html'
     try:
         res = requests.get(url, headers=HEADERS, timeout=15)
+        print(f"  日程ページ {date_str}: status={res.status_code} len={len(res.text)}")
         if res.status_code != 200:
             return []
         ids = list(dict.fromkeys(re.findall(r'fs\d+', res.text)))
-        print(f"  {date_str}: {len(ids)}件のゲームID取得")
+        print(f"  {date_str}: {len(ids)}件のゲームID: {ids}")
         return ids
     except Exception as e:
         print(f"  {date_str} エラー: {e}")
@@ -86,18 +88,25 @@ def scrape_game(game_id, game_date):
     url = f'https://npb.jp/bis/2026/games/{game_id}.html'
     try:
         res = requests.get(url, headers=HEADERS, timeout=15)
+        html = res.text
+        print(f"    {game_id}: status={res.status_code} len={len(html)}")
+
         if res.status_code != 200:
             return None
-        html = res.text
 
-        # 観客数
-        aud_match = re.search(r'入場者\s*[-－]\s*([\d,]+)', html)
+        # 観客数（複数パターン）
+        aud_match = re.search(r'入場者[\s\u3000]*[-－\-][\s\u3000]*([\d,]+)', html)
         if not aud_match:
+            idx = html.find('入場者')
+            if idx >= 0:
+                print(f"    入場者周辺: {repr(html[idx:idx+30])}")
+            else:
+                print(f"    入場者: 見つからず（中止の可能性）")
             return None
         audience = int(aud_match.group(1).replace(',', ''))
 
         # チーム名
-        title_match = re.search(r'（(.+?)vs(.+?)）', html)
+        title_match = re.search(r'[（(](.+?)vs(.+?)[）)]', html)
         if not title_match:
             return None
         home = norm(title_match.group(1))
@@ -111,7 +120,7 @@ def scrape_game(game_id, game_date):
             'audience': audience,
         }
     except Exception as e:
-        print(f"  エラー {game_id}: {e}")
+        print(f"    エラー {game_id}: {e}")
         return None
 
 def next_version(current):
