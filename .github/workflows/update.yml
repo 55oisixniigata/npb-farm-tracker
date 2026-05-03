@@ -3,7 +3,7 @@ name: NPBファーム 集客データ自動更新
 on:
   schedule:
     # 毎日 JST 23:00 に実行（UTC 14:00）
-    - cron: '0 14 * * *'
+    - cron: '0 6 * * *'
   workflow_dispatch:
     # 手動実行も可能
 
