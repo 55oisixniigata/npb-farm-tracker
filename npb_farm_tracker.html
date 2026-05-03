@@ -304,9 +304,12 @@ function renderYoYChart() {
             display:true,
             align:'top',
             anchor:'end',
-            color:'#ffffff99',
+            color:'#ffffffcc',
             font:{size:9, family:'Noto Sans JP'},
-            formatter: v => v.toLocaleString()
+            formatter: v => v.toLocaleString(),
+            backgroundColor:'rgba(18,22,38,0.85)',
+            borderRadius:3,
+            padding:{top:2,bottom:2,left:4,right:4}
           }
         },
         {
