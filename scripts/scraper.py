@@ -76,7 +76,7 @@ def get_all_farm_game_urls(year, target_dates):
     target_set = set(target_dates)
     result = []  # (date, url) のリスト
     
-    for page in range(1, 20):  # ページ1〜19を試す
+    for page in range(3, 13):  # ページ1〜19を試す
         url = f'https://npb.jp/farm/{year}/schedule_{page:02d}_detail.html'
         try:
             res = requests.get(url, headers=HEADERS, timeout=15)
