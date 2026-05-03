@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NPBファーム 集客トラッカー 2026</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&family=Bebas+Neue&display=swap');
 :root{--bg:#0a0c12;--surface:#12151f;--surface2:#1a1e2e;--border:#252a3d;--accent:#e8c84a;--accent2:#4a8fe8;--text:#f0f2ff;--muted:#6b728f;--green:#4ae8a0;--red:#e84a6b}
@@ -31,6 +32,8 @@ header h1{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;letter-spacing:.0
 .tab{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:3px 9px;font-size:.7rem;border-radius:4px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
 .tab.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
 canvas{max-height:240px}
+.chart-panel:not(.full){display:flex;flex-direction:column}
+.chart-panel:not(.full) canvas{flex:1;max-height:none;min-height:0}
 .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .legend-item{display:flex;align-items:center;gap:4px;font-size:.7rem;color:var(--muted)}
 .legend-dot{width:8px;height:8px;border-radius:50%}
@@ -40,6 +43,18 @@ th{text-align:left;padding:6px 10px;font-size:.62rem;letter-spacing:.08em;text-t
 td{padding:7px 10px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--surface2)}
+.compact-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.compact-table th{padding:5px 5px;font-size:.58rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.compact-table th:first-child,.compact-table th:nth-child(2){text-align:left}
+.compact-table td{padding:4px 5px;border-bottom:1px solid var(--border);text-align:right;color:var(--muted);white-space:nowrap}
+.compact-table td:first-child{text-align:center;font-size:.72rem;width:20px}
+.compact-table td:nth-child(2){text-align:left;color:var(--text)}
+.compact-table tr:last-child td{border-bottom:none}
+.compact-table tr:hover td{background:var(--surface2)}
+.compact-table .avg-val{color:var(--text);font-weight:700}
+.compact-table .max-val{color:var(--green)}
+.compact-table .min-val{color:var(--muted)}
+.rank-panel-scroll{overflow-x:auto}
 .team-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
 .log-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
 .log-title{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:10px}
@@ -50,7 +65,13 @@ tr:hover td{background:var(--surface2)}
 .log-err{color:var(--red)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-weight:700;padding:9px 20px;border-radius:20px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .3s;z-index:999}
 .toast.show{opacity:1}
-@media(max-width:800px){.stats-row{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-column:1/-1;grid-template-columns:1fr}}
+@media(max-width:800px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .charts-grid{grid-column:1/-1;grid-template-columns:1fr}
+  .compact-table .hide-sp{display:none}
+  .compact-table{font-size:.82rem}
+  .compact-table td,.compact-table th{padding:6px 7px}
+}
 </style>
 </head>
 <body>
@@ -69,7 +90,7 @@ tr:hover td{background:var(--surface2)}
 <div class="charts-grid">
   <div class="chart-panel">
     <div class="chart-header">
-      <span class="chart-title">チーム別 集客数（ホーム）</span>
+      <span class="chart-title">観客動員数ランキング</span>
       <div class="tab-group" id="bar-tabs">
         <button class="tab active" onclick="switchBar('total',this)">累計</button>
         <button class="tab" onclick="switchBar('avg',this)">平均</button>
@@ -77,6 +98,21 @@ tr:hover td{background:var(--surface2)}
     </div>
     <canvas id="barChart"></canvas>
     <div class="legend" id="bar-legend"></div>
+  </div>
+  <div class="chart-panel">
+    <div class="chart-header">
+      <span class="chart-title">観客動員実績（詳細）</span>
+      <div class="tab-group" id="rank-tabs">
+        <button class="tab active" onclick="switchRank('total',this)">累計順</button>
+        <button class="tab" onclick="switchRank('avg',this)">平均順</button>
+      </div>
+    </div>
+    <div class="rank-panel-scroll">
+      <table class="compact-table" id="summary-table">
+        <thead><tr><th>#</th><th>チーム</th><th>試合</th><th id="th-total">累計</th><th id="th-avg">平均</th><th class="hide-sp">最多</th><th class="hide-sp">最少</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
   <div class="chart-panel full">
     <div class="chart-header">
@@ -93,15 +129,6 @@ tr:hover td{background:var(--surface2)}
   </div>
 </div>
 
-<div class="table-panel">
-  <div class="chart-header" style="margin-bottom:12px">
-    <span class="chart-title" style="font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700">チーム別 集計（ホーム）</span>
-  </div>
-  <table id="summary-table">
-    <thead><tr><th>チーム</th><th>試合数</th><th>累計</th><th>平均</th><th>最多</th><th>最少</th></tr></thead>
-    <tbody></tbody>
-  </table>
-</div>
 
 <div class="log-panel">
   <div class="log-title">更新ログ</div>
@@ -144,6 +171,7 @@ function loadEntries() {
 
 let entries = loadEntries();
 let barMode = 'total';
+let rankMode = 'total';
 let lineTeam = null;
 let barChart, oppChart, lineChart, yoyChart;
 
@@ -203,11 +231,19 @@ function switchBar(mode, btn) {
   renderBarChart();
 }
 
+function switchRank(mode, btn) {
+  rankMode = mode;
+  document.getElementById('rank-tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
 function renderBarChart() {
   const stats = teamStats();
-  const sorted = Object.entries(stats).sort((a,b)=>b[1].total-a[1].total);
+  const val = ([,s]) => barMode==='total' ? s.total : Math.round(s.total/s.count);
+  const sorted = Object.entries(stats).sort((a,b)=>val(b)-val(a));
   const labels = sorted.map(([t])=>t);
-  const data = sorted.map(([,s])=>barMode==='total'?s.total:Math.round(s.total/s.count));
+  const data = sorted.map(s=>val(s));
   const colors = labels.map(t=>TEAMS_COLOR[t]||'#888');
   if (barChart) barChart.destroy();
   barChart = new Chart(document.getElementById('barChart'),{
@@ -258,7 +294,8 @@ function renderYoYChart() {
           backgroundColor: teamColors.map(c=>c+'99'),
           borderColor: teamColors,
           borderWidth:1.5, borderRadius:4,
-          yAxisID:'y'
+          yAxisID:'y',
+          datalabels:{ display:false }
         },
         {
           label:'2025年 同試合数時点平均',
@@ -270,7 +307,15 @@ function renderYoYChart() {
           pointRadius:4,
           pointBackgroundColor:'#ffffffaa',
           fill:false,
-          yAxisID:'y'
+          yAxisID:'y',
+          datalabels:{
+            display:true,
+            align:'top',
+            anchor:'end',
+            color:'#9aa0b8',
+            font:{size:9, family:'Noto Sans JP'},
+            formatter: v => v.toLocaleString()
+          }
         }
       ]
     },
@@ -278,6 +323,7 @@ function renderYoYChart() {
       responsive:true,
       plugins:{
         legend:{display:true, labels:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}}},
+        datalabels:{},
         tooltip:{callbacks:{
           label: ctx => {
             const r = result[ctx.dataIndex];
@@ -293,7 +339,8 @@ function renderYoYChart() {
         x:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#1a1e2e'}},
         y:{ticks:{color:'#6b728f',font:{family:'Noto Sans JP',size:10}},grid:{color:'#252a3d'}}
       }
-    }
+    },
+    plugins:[ChartDataLabels]
   });
 }
 
@@ -339,14 +386,26 @@ function renderLineChart() {
 
 function renderTable() {
   const stats=teamStats();
-  const sorted=Object.entries(stats).sort((a,b)=>b[1].total-a[1].total);
-  document.querySelector('#summary-table tbody').innerHTML=sorted.map(([team,s])=>`
-    <tr><td><span class="team-dot" style="background:${TEAMS_COLOR[team]||'#888'}"></span>${team}</td>
-    <td style="color:var(--muted)">${s.count}</td>
-    <td style="font-weight:700">${s.total.toLocaleString()}</td>
-    <td>${Math.round(s.total/s.count).toLocaleString()}</td>
-    <td style="color:var(--green)">${s.max.toLocaleString()}</td>
-    <td style="color:var(--muted)">${s.min.toLocaleString()}</td></tr>`).join('');
+  const isAvg = rankMode === 'avg';
+  const sorted=Object.entries(stats).filter(([,s])=>s.count>0).sort((a,b)=>{
+    const va = isAvg ? Math.round(a[1].total/a[1].count) : a[1].total;
+    const vb = isAvg ? Math.round(b[1].total/b[1].count) : b[1].total;
+    return vb - va;
+  });
+  const medals=['🥇','🥈','🥉'];
+  document.querySelector('#summary-table tbody').innerHTML=sorted.map(([team,s],i)=>{
+    const rank=i<3?`<span class="rank-medal">${medals[i]}</span>`:`${i+1}`;
+    const avg=Math.round(s.total/s.count);
+    return `<tr>
+      <td>${rank}</td>
+      <td><span class="team-dot" style="background:${TEAMS_COLOR[team]||'#888'}"></span>${team}</td>
+      <td>${s.count}</td>
+      <td class="avg-val">${s.total.toLocaleString()}</td>
+      <td class="avg-val">${avg.toLocaleString()}</td>
+      <td class="max-val hide-sp">${s.max.toLocaleString()}</td>
+      <td class="min-val hide-sp">${s.min.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
 }
 
 function renderLog() {
