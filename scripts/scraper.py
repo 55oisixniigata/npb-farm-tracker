@@ -93,6 +93,8 @@ def main():
 
     target_dates = get_target_dates(games)
     if not target_dates:
+        sidecar['updated_at'] = date.today().isoformat()
+        save_data(sidecar)
         print("✅ すでに最新です（追加データなし）")
         sys.exit(0)
 
