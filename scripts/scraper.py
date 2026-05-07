@@ -121,6 +121,7 @@ def main():
 
     new_version = next_version(sidecar.get('version', '2026-v0'))
     sidecar['version'] = new_version
+    sidecar['updated_at'] = date.today().isoformat()  # ← これを追加
     sidecar['games'] = all_games
     save_data(sidecar)
 
