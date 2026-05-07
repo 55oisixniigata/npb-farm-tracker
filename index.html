@@ -155,9 +155,9 @@ async function init() {
     const res = await fetch(base + '/data.json');
     const sidecar = await res.json();
     entries = sidecar.games || [];
-    const latestDate = entries.reduce((m,e) => e.date > m ? e.date : m, '');
+    const updatedAt = sidecar.updated_at || latestDate;
     document.getElementById('last-updated').textContent =
-      latestDate ? '最終更新: ' + latestDate : 'データなし';
+      updatedAt ? 'データ更新日: ' + updatedAt : 'データなし';
   } catch(e) {
     document.getElementById('last-updated').textContent = 'データ読込エラー';
     console.error(e);
