@@ -115,9 +115,11 @@ def main():
         time.sleep(0.5)
 
     if not new_games:
+        sidecar['updated_at'] = date.today().isoformat()
+        save_data(sidecar)
         print("⚠️  新規データなし（試合なし、または雨天中止）")
         sys.exit(0)
-
+    
     all_games = games + new_games
     all_games.sort(key=lambda x: (x['date'], x['id']))
 
