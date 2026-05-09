@@ -5,6 +5,7 @@ Cloudflare Worker経由でNPB公式から観客数を取得する
 """
 
 import json
+import os
 import re
 import sys
 import time
@@ -128,6 +129,7 @@ def main():
     sidecar['updated_at'] = date.today().isoformat()  # ← これを追加
     sidecar['games'] = all_games
     save_data(sidecar)
+    send_slack(new_games, all_games, os.environ.get('SLACK_WEBHOOK_URL', ''))
 
     print(f"\n✅ 更新完了: +{len(new_games)}試合 / 累計{len(all_games)}試合 / {new_version}")
 
@@ -142,6 +144,45 @@ def main():
         avg = round(s['total'] / s['count'])
         medal = ['🥇', '🥈', '🥉'][i - 1] if i <= 3 else f'{i}.'
         print(f"{medal} {team}: {s['total']:,}人 ({s['count']}試合 / avg {avg:,}人)")
+
+def send_slack(new_games, all_games, webhook_url):
+    if not webhook_url:
+        return
+    
+    from collections import defaultdict
+    stats = defaultdict(lambda: {'total': 0, 'count': 0})
+    for g in all_games:
+        stats[g['home']]['total'] += g['audience']
+        stats[g['home']]['count'] += 1
+    
+    sorted_stats = sorted(stats.items(), key=lambda x: -x[1]['total'])
+    
+    start_date = min(g['date'] for g in all_games)
+    end_date = max(g['date'] for g in all_games)
+    
+    medals = ['🥇', '🥈', '🥉']
+    ranking_lines = []
+    for i, (team, s) in enumerate(sorted_stats):
+        avg = round(s['total'] / s['count'])
+        medal = medals[i] if i < 3 else f'{i+1}.'
+        ranking_lines.append(f'{medal}　{team}：{s["total"]:,}人　（avg {avg:,}人）')
+    
+    text = (
+        f'📣 *NPBファーム集客トラッカー更新*\n'
+        f'📅 {start_date}〜{end_date}　／　📊 +{len(new_games)}試合（累計 {len(all_games)}試合）\n\n'
+        f'━━━━━━━━━━━━━━━━━━━━━━\n'
+        f'🏆 ホーム観客動員数ランキング\n'
+        f'━━━━━━━━━━━━━━━━━━━━━━\n'
+        + '\n'.join(ranking_lines) + '\n\n'
+        f'🔗 https://55oisixniigata.github.io/npb-farm-tracker/'
+    )
+    
+    import urllib.request
+    import json as _json
+    payload = _json.dumps({'text': text}).encode('utf-8')
+    req = urllib.request.Request(webhook_url, data=payload, headers={'Content-Type': 'application/json'})
+    urllib.request.urlopen(req, timeout=10)
+    print('✅ Slack通知送信完了')
 
 if __name__ == '__main__':
     main()
