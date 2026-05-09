@@ -27,6 +27,8 @@ jobs:
         run: pip install requests beautifulsoup4
 
       - name: スクレイピング実行
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python scripts/scraper.py
 
       - name: index.html を更新
