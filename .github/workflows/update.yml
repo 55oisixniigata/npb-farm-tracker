@@ -38,6 +38,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json
+          git add data.json oisix_home.csv
           git diff --cached --quiet || git commit -m "📊 データ自動更新 $(date +'%Y-%m-%d')"
           git pull --rebase && git push
