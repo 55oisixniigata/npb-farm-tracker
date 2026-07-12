@@ -4,6 +4,7 @@ NPBファーム集客トラッカー 自動更新スクレイパー
 Cloudflare Worker経由でNPB公式から観客数を取得する
 """
 
+import csv
 import json
 import os
 import re
@@ -16,6 +17,7 @@ import requests
 
 REPO_ROOT = Path(__file__).parent.parent
 DATA_FILE = REPO_ROOT / "data.json"
+OISIX_CSV_FILE = REPO_ROOT / "oisix_home.csv"
 
 # Cloudflare WorkerのURL
 WORKER_URL = "https://npb-farm-scraper.wsss716.workers.dev"
@@ -48,6 +50,19 @@ def load_data():
 def save_data(sidecar):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(sidecar, f, ensure_ascii=False, separators=(',', ':'))
+
+def save_oisix_csv(games):
+    """オイシックスのホーム試合のみをCSVに出力する（集客管理シートのIMPORTDATA用）"""
+    rows = [
+        g for g in games
+        if g.get('home') == 'オイシックス' and g.get('audience') is not None
+    ]
+    rows.sort(key=lambda g: g['date'])
+    with open(OISIX_CSV_FILE, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['date', 'away', 'audience'])
+        for g in rows:
+            writer.writerow([g['date'], g['away'], g['audience']])
 
 def get_target_dates(games):
     if not games:
@@ -96,6 +111,7 @@ def main():
     if not target_dates:
         sidecar['updated_at'] = date.today().isoformat()
         save_data(sidecar)
+        save_oisix_csv(games)
         print("✅ すでに最新です（追加データなし）")
         sys.exit(0)
 
@@ -118,9 +134,10 @@ def main():
     if not new_games:
         sidecar['updated_at'] = date.today().isoformat()
         save_data(sidecar)
+        save_oisix_csv(games)
         print("⚠️  新規データなし（試合なし、または雨天中止）")
         sys.exit(0)
-    
+
     all_games = games + new_games
     all_games.sort(key=lambda x: (x['date'], x['id']))
 
@@ -129,6 +146,7 @@ def main():
     sidecar['updated_at'] = date.today().isoformat()  # ← これを追加
     sidecar['games'] = all_games
     save_data(sidecar)
+    save_oisix_csv(all_games)
     send_slack(new_games, all_games, os.environ.get('SLACK_WEBHOOK_URL', ''))
 
     print(f"\n✅ 更新完了: +{len(new_games)}試合 / 累計{len(all_games)}試合 / {new_version}")
